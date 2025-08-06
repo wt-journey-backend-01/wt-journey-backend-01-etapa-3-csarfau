@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import * as z from 'zod';
 import { agentesRepository } from '../repositories/agentesRepository.js';
 import { createError } from '../utils/errorHandler.js';
@@ -40,11 +39,11 @@ const searchQuerySchema = z.object({
  * @param { NextFunction } next - Próximo middleware
  * @returns { Response }
  */
-function index(req, res, next) {
+async function index(req, res, next) {
   try {
     const { cargo, sort } = searchQuerySchema.parse(req.query);
 
-    let agentes = agentesRepository.findAll();
+    let agentes = await agentesRepository.findAll();
 
     if (cargo) {
       agentes = agentes.filter((a) => a.cargo.toLowerCase() === cargo.toLowerCase());
@@ -82,15 +81,15 @@ function index(req, res, next) {
  * @param { NextFunction } next - Próximo middleware
  * @returns { Response }
  */
-function show(req, res, next) {
+async function show(req, res, next) {
   try {
     const { id: agenteId } = z
       .object({
-        id: z.uuid("O parâmetro 'id' deve ser um UUID válido."),
+        id: z.coerce.number("O parâmetro 'id' deve ser um número."),
       })
       .parse(req.params);
 
-    const agente = agentesRepository.findById(agenteId);
+    const agente = await agentesRepository.findById(agenteId);
 
     if (!agente) {
       return next(createError(404, { agente_id: `Agente não encontrado.` }));
@@ -116,13 +115,11 @@ function show(req, res, next) {
  * @param { NextFunction } next - Próximo middleware
  * @returns { Response }
  */
-function create(req, res, next) {
+async function create(req, res, next) {
   try {
     let newAgenteData = newAgenteSchema.parse(req.body);
 
-    newAgenteData = { id: uuidv4(), ...newAgenteData };
-
-    const newAgente = agentesRepository.create(newAgenteData);
+    const newAgente = await agentesRepository.create(newAgenteData);
 
     return res.status(201).json(newAgente);
   } catch (err) {
@@ -140,15 +137,15 @@ function create(req, res, next) {
  * @param { NextFunction } next - Próximo middleware
  * @returns { Response }
  */
-function update(req, res, next) {
+async function update(req, res, next) {
   try {
     const { id: agenteId } = z
       .object({
-        id: z.uuid("O campo 'id' deve ser um UUID válido."),
+        id: z.coerce.number("O campo 'id' deve ser um número."),
       })
       .parse(req.params);
 
-    const agente = agentesRepository.findById(agenteId);
+    const agente = await agentesRepository.findById(agenteId);
 
     if (!agente) {
       return next(createError(404, { agente_id: `Agente com o ID: ${agenteId} não encontrado.` }));
@@ -161,7 +158,7 @@ function update(req, res, next) {
     const newAgenteData = newAgenteSchema.parse(req.body);
     delete newAgenteData.id;
 
-    const updatedAgente = agentesRepository.update(newAgenteData, agenteId);
+    const updatedAgente = await agentesRepository.update(newAgenteData, agenteId);
     return res.status(200).json(updatedAgente);
   } catch (err) {
     if (err.name === 'ZodError') {
@@ -182,7 +179,7 @@ function update(req, res, next) {
  * @param { NextFunction } next - Próximo middleware
  * @returns { Response }
  */
-function patch(req, res, next) {
+async function patch(req, res, next) {
   if (!req.body || Object.keys(req.body).length < 1) {
     return next(createError(400, { body: 'Informe pelo menos 1 campo para ser atualizado.' }));
   }
@@ -190,11 +187,11 @@ function patch(req, res, next) {
   try {
     const { id: agenteId } = z
       .object({
-        id: z.uuid("O campo 'id' deve ser um UUID válido."),
+        id: z.coerce.number("O campo 'id' deve ser um número."),
       })
       .parse(req.params);
 
-    const agente = agentesRepository.findById(agenteId);
+    const agente = await agentesRepository.findById(agenteId);
 
     if (!agente) {
       return next(createError(404, { agente_id: `Agente não encontrado.` }));
@@ -206,7 +203,7 @@ function patch(req, res, next) {
 
     const agenteDataToUpdate = newAgenteSchema.partial().strict().parse(req.body);
 
-    const updatedAgente = agentesRepository.update(agenteDataToUpdate, agenteId);
+    const updatedAgente = await agentesRepository.update(agenteDataToUpdate, agenteId);
     return res.status(200).json(updatedAgente);
   } catch (err) {
     if (err.name === 'ZodError') {
@@ -225,21 +222,21 @@ function patch(req, res, next) {
  * @param { NextFunction } next - Próximo middleware
  * @returns { Response }
  */
-function remove(req, res, next) {
+async function remove(req, res, next) {
   try {
     const { id: agenteId } = z
       .object({
-        id: z.uuid("O campo 'id' deve ser um UUID válido."),
+        id: z.coerce.number("O campo 'id' deve ser um número."),
       })
       .parse(req.params);
 
-    const agente = agentesRepository.findById(agenteId);
+    const agente = await agentesRepository.findById(agenteId);
 
     if (!agente) {
       return next(createError(404, { agente_id: `Agente não encontrado.` }));
     }
 
-    agentesRepository.remove(agenteId);
+    await agentesRepository.remove(agenteId);
 
     res.status(204).send();
   } catch (err) {
