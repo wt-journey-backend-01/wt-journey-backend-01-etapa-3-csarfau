@@ -1,51 +1,44 @@
-const agentes = [];
+import { db } from '../db/db.js';
 
-function findAll() {
-  return agentes;
+async function findAll() {
+  return await db('agentes');
 }
 
 /** Encontra um agente através do ID informado.
  *
  * @param { string } agenteId - ID do agente a ser buscado
- * @returns { string[] }
+ * @returns { Promise }
  */
-function findById(agenteId) {
-  return agentes.find((agente) => agente.id === agenteId);
+async function findById(agenteId) {
+  return await db('agentes').where({ id: agenteId }).first();
 }
 
 /** Cria um agente
  *
  * @param { string[] } newAgenteData - Dados do novo agente
- * @returns { string[] }
+ * @returns { Promise }
  */
-function create(newAgenteData) {
-  agentes.push(newAgenteData);
-  return newAgenteData;
+async function create(newAgenteData) {
+  return await db('agentes').returning('*').insert(newAgenteData);
 }
 
 /** Atualiza um agente completo ou parcialmente
  *
  * @param { string[] } agenteDataToUpdate - Dados do agente atualizado
  * @param { string } agenteId - ID do agente a ser atualizado
- * @returns { string[] }
+ * @returns { Promise }
  */
-function update(agenteDataToUpdate, agenteId) {
-  const agenteIndex = agentes.findIndex((agente) => agente.id === agenteId);
-
-  return (agentes[agenteIndex] = {
-    ...agentes[agenteIndex],
-    ...agenteDataToUpdate,
-  });
+async function update(agenteDataToUpdate, agenteId) {
+  return await db('agentes').where({ id: agenteId }).update(agenteDataToUpdate, '*');
 }
 
 /** Remove um agente
  *
  * @param { string } agenteId - ID do agente a ser removido
- * @returns { string[] }
+ * @returns { Promise }
  */
-function remove(agenteId) {
-  const agenteIndex = agentes.findIndex((agente) => agente.id === agenteId);
-  return agentes.splice(agenteIndex, 1);
+async function remove(agenteId) {
+  return await db('agentes').where({ id: agenteId }).delete();
 }
 
 export const agentesRepository = {
