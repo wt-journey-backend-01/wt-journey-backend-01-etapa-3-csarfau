@@ -1,0 +1,4 @@
+- Executar o comando `docker compose up -d` para rodar o container do banco de dados
+- Executar o comando `npx knex migrate:latest` para criar as tabelas no banco de dados
+- Executar o comando `npx knex seed:run` para popular o banco de dados
+- Caso seja necessário, para dar um reset no banco de dados use o comando `npm run db:reset`
