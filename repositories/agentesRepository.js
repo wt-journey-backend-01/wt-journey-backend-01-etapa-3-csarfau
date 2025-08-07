@@ -19,7 +19,8 @@ async function findById(agenteId) {
  * @returns { Promise }
  */
 async function create(newAgenteData) {
-  return await db('agentes').returning('*').insert(newAgenteData);
+  const [agente] = await db('agentes').returning('*').insert(newAgenteData);
+  return agente;
 }
 
 /** Atualiza um agente completo ou parcialmente
@@ -29,7 +30,8 @@ async function create(newAgenteData) {
  * @returns { Promise }
  */
 async function update(agenteDataToUpdate, agenteId) {
-  return await db('agentes').where({ id: agenteId }).update(agenteDataToUpdate, '*');
+  const [agente] = await db('agentes').where({ id: agenteId }).update(agenteDataToUpdate, '*');
+  return agente;
 }
 
 /** Remove um agente

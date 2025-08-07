@@ -127,9 +127,12 @@ async function create(req, res, next) {
 
     return res.status(201).json(newCaso);
   } catch (err) {
-    const isInvalidId = err.issues.length === 1 && err.issues[0].path[0] === 'agente_id';
-    const statusCode = isInvalidId ? 404 : 400;
-    return next(createError(statusCode, formatZodErrors(err)));
+    if (err.name === 'ZodError') {
+      const isInvalidId = err.issues.length === 1 && err.issues[0].path[0] === 'agente_id';
+      const statusCode = isInvalidId ? 404 : 400;
+      return next(createError(statusCode, formatZodErrors(err)));
+    }
+    next(err);
   }
 }
 
@@ -284,7 +287,7 @@ async function showResponsibleAgente(req, res, next) {
       return next(createError(404, { caso_id: `Caso não encontrado.` }));
     }
 
-    const agente = await agentesRepository.findById(caso[0].agente_id);
+    const agente = await agentesRepository.findById(caso.agente_id);
 
     if (!agente) {
       return next(createError(404, { agente_id: `Agente não encontrado.` }));

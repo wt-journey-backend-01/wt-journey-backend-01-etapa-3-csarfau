@@ -16,7 +16,9 @@ async function findAll({ agente_id, status, q } = {}) {
   }
 
   if (q) {
-    query.whereILike('titulo', `%${q}%`).orWhereILike('descricao', `%${q}%`);
+    query.andWhere(function () {
+      this.whereILike('titulo', `%${q}%`).orWhereILike('descricao', `%${q}%`);
+    });
   }
 
   return await query;
@@ -28,7 +30,7 @@ async function findAll({ agente_id, status, q } = {}) {
  * @returns { Promise }
  */
 async function findById(casoId) {
-  return await db('casos').where({ id: casoId }).select();
+  return await db('casos').where({ id: casoId }).first();
 }
 
 /** Cria um novo caso
@@ -37,7 +39,8 @@ async function findById(casoId) {
  * @returns { Promise }
  */
 async function create(newCaso) {
-  return await db('casos').returning('*').insert(newCaso);
+  const [caso] = await db('casos').returning('*').insert(newCaso);
+  return caso;
 }
 
 /** Atualiza um caso completo ou parcialmente
@@ -47,7 +50,8 @@ async function create(newCaso) {
  * @returns { Promise }
  */
 async function update(casoDataToUpdate, casoId) {
-  return await db('casos').where({ id: casoId }).update(casoDataToUpdate, '*');
+  const [caso] = await db('casos').where({ id: casoId }).update(casoDataToUpdate, '*');
+  return caso;
 }
 
 /** Remove um caso
