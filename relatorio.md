@@ -1,110 +1,89 @@
 <sup>Esse é um feedback gerado por IA, ele pode conter erros.</sup>
 
-Você tem 7 créditos restantes para usar o sistema de feedback AI.
+Você tem 6 créditos restantes para usar o sistema de feedback AI.
 
 # Feedback para csarfau:
 
 Nota final: **0.0/100**
 
-Olá, csarfau! 👋😊
+Olá, csarfau! 👋🚀 Que bom te ver por aqui! Antes de mais nada, parabéns por se dedicar a essa etapa tão importante da sua jornada — migrar uma API para usar banco de dados real com PostgreSQL e Knex.js não é brincadeira, e você já tem uma base sólida para isso. 🎉
 
-Primeiro, quero parabenizar você por todo o esforço e dedicação em migrar sua API para usar PostgreSQL com Knex.js! 🎉 Migrar de arrays em memória para um banco relacional é um grande passo e exige atenção a muitos detalhes, então já é um baita avanço ter o projeto estruturado e com várias partes implementadas.
-
-Além disso, vi que você conseguiu implementar corretamente a validação de payloads no momento da criação de agentes e casos, retornando o status 400 quando os dados são inválidos. Isso é muito importante para garantir a robustez da API. Parabéns por essa conquista! 👏
+Vi que você conseguiu implementar corretamente as validações de payload para criação de agentes e casos, respondendo com status 400 quando os dados estão mal formatados. Isso é essencial para garantir a qualidade da API e você mandou bem nessa parte! 👏
 
 ---
 
-### 🚦 Análise geral e pontos principais para focar:
-
-Ao analisar seu código e a forma como ele está estruturado, percebi alguns pontos fundamentais que estão bloqueando o funcionamento correto da persistência com PostgreSQL e, consequentemente, o funcionamento dos endpoints:
+### Vamos conversar sobre o que pode ser melhorado para destravar tudo? 🕵️‍♂️🔍
 
 ---
 
-### 1. **Configuração e uso do banco de dados:**
+## 1. Estrutura do Projeto e Configuração do Banco de Dados
 
-- Seu `knexfile.js` parece estar correto, usando variáveis de ambiente para conexão, e o `db/db.js` importa o knex com a configuração de desenvolvimento.
+Antes de tudo, uma coisa fundamental para que tudo funcione é a estrutura do seu projeto e a configuração correta da conexão com o banco.
 
-- Porém, o principal problema está no fato de que os seus repositórios **estão esperando IDs numéricos** (`z.coerce.number()` no controller) e também usam `where({ id: agenteId })` e `where({ id: casoId })` para buscar os registros.
+### O que eu esperava ver:
 
-- **Mas pelo enunciado e pelo padrão esperado, os IDs das tabelas `agentes` e `casos` devem ser UUIDs, strings, não números!** Isso fica claro pelo Swagger e pelos schemas OpenAPI, que indicam que os IDs são strings no formato UUID.
-
-- Além disso, no seu seed, você insere agentes e casos com IDs implícitos (sem especificar), o que sugere que a coluna `id` deve ser UUID gerado automaticamente pelo banco.
-
-- O problema de usar `z.coerce.number()` para IDs e tratar eles como números no `where` está causando falhas na busca, atualização e remoção, porque o banco está esperando strings UUID e você está buscando por números.
-
-- Isso explica porque várias operações de CRUD estão falhando: o banco não encontra registros com `id` numérico, pois os IDs são strings UUID.
-
-**Exemplo do problema no código:**
-
-```js
-// No agentesController.js, trecho que busca por agente pelo id:
-const { id: agenteId } = z
-  .object({
-    id: z.coerce.number("O parâmetro 'id' deve ser um número."), // <-- problema: id é UUID, não número
-  })
-  .parse(req.params);
-
-const agente = await agentesRepository.findById(agenteId);
+```
+📦 SEU-REPOSITÓRIO
+│
+├── package.json
+├── server.js
+├── .env
+├── knexfile.js
+├── INSTRUCTIONS.md
+│
+├── db/
+│   ├── migrations/
+│   ├── seeds/
+│   └── db.js
+│
+├── routes/
+│   ├── agentesRoutes.js
+│   └── casosRoutes.js
+│
+├── controllers/
+│   ├── agentesController.js
+│   └── casosController.js
+│
+├── repositories/
+│   ├── agentesRepository.js
+│   └── casosRepository.js
+│
+└── utils/
+    └── errorHandler.js
 ```
 
-E no repositório:
+### O que eu vi:
+
+- A estrutura está muito próxima do esperado, parabéns! Isso facilita bastante o entendimento e manutenção do código.
+- Porém, notei que você tem um arquivo `.env` na raiz, que foi penalizado. Isso geralmente acontece quando o arquivo `.env` é submetido ao repositório público, o que não é recomendado por questões de segurança. Certifique-se de que o `.env` está no `.gitignore` para não subir variáveis sensíveis ao GitHub. 🔐
+
+### Sobre a conexão com o banco:
+
+Seu arquivo `knexfile.js` está muito bem configurado para diferentes ambientes, usando variáveis de ambiente para usuário, senha e banco. Também vi que seu `db.js` importa o config correto e cria a instância do Knex:
 
 ```js
-async function findById(agenteId) {
-  return await db('agentes').where({ id: agenteId }).first();
-}
+import config from '../knexfile.js';
+import knex from 'knex';
+
+export const db = knex(config.development);
 ```
 
-Se `agenteId` for um número, a busca falha, pois o banco espera uma string UUID.
+Isso é ótimo! Mas... será que o `.env` está realmente carregando as variáveis? 
+
+- Você está usando `dotenv.config()` no `knexfile.js`, o que é correto.
+- Porém, se o `.env` não estiver presente ou as variáveis `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` não estiverem definidas, a conexão vai falhar silenciosamente.
+
+**Dica:** Teste a conexão ao banco manualmente para garantir que o Knex está se conectando corretamente. Você pode fazer isso criando um script simples que faz um `select 1` no banco. Se não conectar, nenhuma query vai funcionar e isso explicaria porque seus endpoints não retornam os dados esperados.
 
 ---
 
-### 2. **Inconsistência no retorno dos métodos create e update nos repositórios:**
+## 2. Migrations e Seeds
 
-- Nos métodos `create` dos repositórios, você está fazendo:
+Você tem um arquivo de migrations (`20250805021032_solution_migrations.js`) e seeds para `agentes` e `casos`. Isso é excelente, pois são a base para criar as tabelas e popular os dados iniciais.
 
-```js
-return await db('agentes').returning('*').insert(newAgenteData);
-```
+Mas, ao analisar os repositórios, percebi algo importante:
 
-O `insert` com `returning('*')` retorna um **array** de registros inseridos, não um único objeto. Mas no controller, você retorna direto esse resultado, o que pode causar retorno inesperado.
-
-O ideal é pegar o primeiro elemento do array retornado:
-
-```js
-const [newAgente] = await db('agentes').returning('*').insert(newAgenteData);
-return newAgente;
-```
-
-Mesma coisa para `update`:
-
-```js
-return await db('agentes').where({ id: agenteId }).update(agenteDataToUpdate, '*');
-```
-
-Também retorna um array de registros atualizados. Recomendo seguir o mesmo padrão para evitar confusões no controller.
-
----
-
-### 3. **No controller, validação dos IDs deve ser para UUID, não números:**
-
-- Como o banco está usando UUIDs, a validação dos parâmetros de rota (`req.params.id`) deve ser feita com `z.string().uuid()`, e não `z.coerce.number()`.
-
-- Isso evita erros de validação e garante que o ID recebido é uma string UUID válida.
-
-Exemplo de correção:
-
-```js
-const { id: agenteId } = z
-  .object({
-    id: z.string().uuid("O parâmetro 'id' deve ser um UUID válido."),
-  })
-  .parse(req.params);
-```
-
----
-
-### 4. **No `casosRepository.findById`, você retorna um array:**
+No `casosRepository.js`, seu método `findById` faz:
 
 ```js
 async function findById(casoId) {
@@ -112,77 +91,7 @@ async function findById(casoId) {
 }
 ```
 
-Como `where` pode retornar vários resultados, aqui você deve usar `.first()` para retornar um único objeto, assim como fez no `agentesRepository.findById`:
-
-```js
-async function findById(casoId) {
-  return await db('casos').where({ id: casoId }).first();
-}
-```
-
-Isso evita que o controller tenha que lidar com um array quando espera um objeto.
-
----
-
-### 5. **No controller de casos, ao buscar o agente responsável:**
-
-```js
-const agente = await agentesRepository.findById(caso[0].agente_id);
-```
-
-Aqui você está acessando `caso[0]`, supondo que `caso` é um array, mas se corrigir o `findById` para retornar `.first()`, `caso` já será um objeto, então use diretamente:
-
-```js
-const agente = await agentesRepository.findById(caso.agente_id);
-```
-
----
-
-### 6. **Penalidade detectada: arquivo `.env` presente na raiz do projeto**
-
-- O arquivo `.env` não deve ser enviado para o repositório público (por questões de segurança), deve ser listado no `.gitignore`.
-
-- Se você enviou o `.env`, remova-o do repositório e adicione ao `.gitignore`.
-
----
-
-### 7. **Sobre a estrutura de diretórios:**
-
-- A estrutura que você enviou está adequada e segue o esperado, parabéns! Isso ajuda muito na organização e manutenção do projeto.
-
----
-
-### 🎯 Resumo rápido do que focar para destravar sua API:
-
-- [ ] Alterar a validação dos IDs nos controllers para `z.string().uuid()` em vez de `z.coerce.number()`.
-
-- [ ] Ajustar os repositórios para tratar os IDs como strings UUID e garantir que `findById` retorne um objeto único com `.first()`.
-
-- [ ] Ajustar os métodos `create` e `update` dos repositórios para retornar o registro único (desestruturando o array retornado pelo Knex).
-
-- [ ] Corrigir o acesso ao agente no controller de casos para usar `caso.agente_id` diretamente, após ajustar o retorno do repositório.
-
-- [ ] Remover o arquivo `.env` do repositório e adicioná-lo ao `.gitignore` para evitar exposição de credenciais.
-
----
-
-### 📚 Recursos que vão te ajudar muito:
-
-- Para entender melhor como usar UUIDs e validar parâmetros no Zod:  
-  https://youtu.be/yNDCRAz7CM8?si=Lh5u3j27j_a4w3A_
-
-- Para trabalhar com Knex.js e entender os retornos de `insert` e `update`:  
-  https://knexjs.org/guide/query-builder.html
-
-- Para configurar banco PostgreSQL com Docker e Knex:  
-  http://googleusercontent.com/youtube.com/docker-postgresql-node
-
-- Para entender melhor como organizar seu projeto com arquitetura MVC:  
-  https://youtu.be/bGN_xNc4A1k?si=Nj38J_8RpgsdQ-QH
-
----
-
-### Exemplo prático para ajustar o `findById` no repositório de agentes:
+Note que você retorna um array (mesmo que com um único elemento) porque `select()` retorna uma lista. Já no `agentesRepository.js`, o `findById` usa:
 
 ```js
 async function findById(agenteId) {
@@ -190,29 +99,257 @@ async function findById(agenteId) {
 }
 ```
 
-E no controller, validar o ID como UUID:
+Que retorna um objeto único.
+
+Esse detalhe é crucial porque no `casosController.js`, no método `showResponsibleAgente`, você faz:
 
 ```js
-const { id: agenteId } = z
-  .object({
-    id: z.string().uuid("O parâmetro 'id' deve ser um UUID válido."),
-  })
-  .parse(req.params);
-
-const agente = await agentesRepository.findById(agenteId);
+const agente = await agentesRepository.findById(caso[0].agente_id);
 ```
+
+Ou seja, você espera que `caso` seja um array para acessar o índice `[0]`. Porém, em outros métodos do controller de casos, você trata `caso` como um objeto único, por exemplo:
+
+```js
+if (!caso) {
+  return next(createError(404, { caso_id: `Caso não encontrado.` }));
+}
+```
+
+Se o `findById` retorna um array vazio quando não encontra, `!caso` será falso (pois array vazio é truthy em JS), e isso pode causar problemas na validação, permitindo que o código prossiga mesmo quando o caso não existe.
+
+### Como corrigir?
+
+No `casosRepository.js`, altere o método `findById` para usar `.first()` também, assim:
+
+```js
+async function findById(casoId) {
+  return await db('casos').where({ id: casoId }).first();
+}
+```
+
+Isso vai retornar um objeto ou `undefined` se não encontrar, facilitando a validação em todos os lugares.
 
 ---
 
-### Finalizando...
+## 3. Retornos das Queries de Insert e Update
 
-Você está muito perto de ter sua API funcionando completamente com banco de dados real! 🚀 Essas correções são fundamentais porque a base da persistência e da comunicação com o banco depende do tipo correto dos IDs e do retorno correto dos métodos do Knex.
+No seu repositório `agentesRepository.js`, o método `create` está assim:
 
-Continue firme! Ajuste esses pontos que te indiquei, e seu código vai destravar e funcionar lindamente. Estou aqui torcendo pelo seu sucesso! 💪✨
+```js
+async function create(newAgenteData) {
+  return await db('agentes').returning('*').insert(newAgenteData);
+}
+```
 
-Se precisar, volte a me chamar para ajudar a entender melhor algum ponto, tá bom?
+O problema é que o método `insert` com `returning('*')` retorna um array com os registros inseridos, não um objeto único. Então, quando você faz no controller:
 
-Um abraço e bons códigos! 👊😄
+```js
+const newAgente = await agentesRepository.create(newAgenteData);
+return res.status(201).json(newAgente);
+```
+
+Você está retornando um **array** de agentes, mas o esperado normalmente é um objeto único.
+
+O mesmo vale para o método `update`:
+
+```js
+async function update(agenteDataToUpdate, agenteId) {
+  return await db('agentes').where({ id: agenteId }).update(agenteDataToUpdate, '*');
+}
+```
+
+O retorno do `update` com `'*'` também é um array com os registros atualizados.
+
+### Como corrigir?
+
+Você deve sempre extrair o primeiro elemento do array retornado, assim:
+
+```js
+async function create(newAgenteData) {
+  const [newAgente] = await db('agentes').returning('*').insert(newAgenteData);
+  return newAgente;
+}
+
+async function update(agenteDataToUpdate, agenteId) {
+  const [updatedAgente] = await db('agentes').where({ id: agenteId }).update(agenteDataToUpdate, '*');
+  return updatedAgente;
+}
+```
+
+Faça o mesmo no `casosRepository.js` para os métodos `create` e `update`.
+
+---
+
+## 4. Filtros e Busca nos Endpoints
+
+Vi que no controller de agentes, você faz a filtragem e ordenação depois de buscar todos os agentes:
+
+```js
+let agentes = await agentesRepository.findAll();
+
+if (cargo) {
+  agentes = agentes.filter((a) => a.cargo.toLowerCase() === cargo.toLowerCase());
+}
+
+if (sort) {
+  agentes = agentes.sort((a, b) => {
+    const dataA = new Date(a.dataDeIncorporacao).getTime();
+    const dataB = new Date(b.dataDeIncorporacao).getTime();
+    return sort === 'dataDeIncorporacao' ? dataA - dataB : dataB - dataA;
+  });
+}
+```
+
+Isso funciona, mas pode ser muito ineficiente se a tabela crescer, pois você está trazendo tudo do banco e filtrando na aplicação.
+
+### Como melhorar?
+
+Implemente essas filtragens e ordenações diretamente nas queries do Knex, dentro do `agentesRepository.js`. Por exemplo:
+
+```js
+async function findAll({ cargo, sort } = {}) {
+  const query = db('agentes');
+
+  if (cargo) {
+    query.whereRaw('LOWER(cargo) = ?', cargo.toLowerCase());
+  }
+
+  if (sort) {
+    const direction = sort.startsWith('-') ? 'desc' : 'asc';
+    const column = sort.replace('-', '');
+    query.orderBy(column, direction);
+  }
+
+  return await query;
+}
+```
+
+E no controller, basta passar os filtros para o repositório:
+
+```js
+const { cargo, sort } = searchQuerySchema.parse(req.query);
+const agentes = await agentesRepository.findAll({ cargo, sort });
+```
+
+Isso vai otimizar a busca e garantir que o banco retorne só o que interessa.
+
+---
+
+## 5. Tratamento de Erros no Controller de Casos
+
+No método `create` do `casosController.js`, seu `catch` está assim:
+
+```js
+catch (err) {
+  const isInvalidId = err.issues.length === 1 && err.issues[0].path[0] === 'agente_id';
+  const statusCode = isInvalidId ? 404 : 400;
+  return next(createError(statusCode, formatZodErrors(err)));
+}
+```
+
+Mas isso pode gerar erro se `err` não for uma instância de `ZodError` e não tiver `issues`.
+
+### Como corrigir?
+
+Você deve verificar o tipo do erro antes de acessar propriedades específicas. Por exemplo:
+
+```js
+catch (err) {
+  if (err.name === 'ZodError') {
+    const isInvalidId = err.issues.length === 1 && err.issues[0].path[0] === 'agente_id';
+    const statusCode = isInvalidId ? 404 : 400;
+    return next(createError(statusCode, formatZodErrors(err)));
+  }
+  return next(err);
+}
+```
+
+Isso evita erros inesperados e melhora a robustez do seu código.
+
+---
+
+## 6. Detalhe Importante no Método `showResponsibleAgente`
+
+Você acessa o agente responsável assim:
+
+```js
+const agente = await agentesRepository.findById(caso[0].agente_id);
+```
+
+Se você corrigir o `findById` para retornar um objeto único no repositório de casos, pode simplificar para:
+
+```js
+const agente = await agentesRepository.findById(caso.agente_id);
+```
+
+Isso deixa o código mais limpo e menos sujeito a erros.
+
+---
+
+## 7. Uso de `orWhereILike` no `casosRepository`
+
+No método `findAll` do `casosRepository`, você fez assim:
+
+```js
+if (q) {
+  query.whereILike('titulo', `%${q}%`).orWhereILike('descricao', `%${q}%`);
+}
+```
+
+Isso pode gerar um problema de precedência, pois o `orWhereILike` não está agrupado, podendo combinar com outras cláusulas `where` de forma inesperada.
+
+### Como corrigir?
+
+Agrupe as condições para que o filtro de busca seja aplicado corretamente:
+
+```js
+if (q) {
+  query.andWhere(function () {
+    this.whereILike('titulo', `%${q}%`).orWhereILike('descricao', `%${q}%`);
+  });
+}
+```
+
+Assim, o filtro `q` busca corretamente em título ou descrição, sem afetar os outros filtros.
+
+---
+
+# Recursos para você mergulhar e aprimorar seu código:
+
+- **Configuração de Banco de Dados com Docker e Knex:**  
+  http://googleusercontent.com/youtube.com/docker-postgresql-node  
+  https://knexjs.org/guide/migrations.html
+
+- **Query Builder do Knex para filtros e ordenações:**  
+  https://knexjs.org/guide/query-builder.html
+
+- **Validação de Dados e Tratamento de Erros na API:**  
+  https://youtu.be/yNDCRAz7CM8?si=Lh5u3j27j_a4w3A_  
+  https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Status/400  
+  https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Status/404
+
+- **Arquitetura MVC e organização de projetos Node.js:**  
+  https://youtu.be/bGN_xNc4A1k?si=Nj38J_8RpgsdQ-QH
+
+---
+
+# Resumo Rápido para você focar:
+
+- 🔑 **Confirme que o `.env` está configurado e carregado corretamente para o Knex conectar ao banco.**  
+- 🛠️ **Altere os métodos `findById` para usarem `.first()` e retornarem um objeto único.**  
+- 🎯 **Ajuste os métodos `create` e `update` nos repositórios para extrair o primeiro elemento do array retornado.**  
+- ⚡ **Implemente filtros e ordenações diretamente nas queries do Knex, evitando filtrar no controller depois.**  
+- 🛡️ **Melhore o tratamento de erros para verificar se o erro é do tipo `ZodError` antes de acessar propriedades específicas.**  
+- 🔍 **Agrupe corretamente as condições de busca com `orWhereILike` para evitar conflitos nos filtros.**  
+- 🔄 **Remova o arquivo `.env` do repositório e adicione-o ao `.gitignore` para segurança.**
+
+---
+
+Você está no caminho certo, csarfau! 💪✨ Refatorar uma API para usar banco de dados real, com validação, tratamento de erros e arquitetura modular não é simples, mas você já tem uma base muito boa. Com esses ajustes, sua API vai ficar sólida, performática e pronta para o mundo real! 🌍
+
+Se precisar, revisite os recursos que te indiquei, pratique bastante e não hesite em perguntar. Estou aqui para te ajudar nessa jornada! 🚀🔥
+
+Um grande abraço e continue firme! Você vai longe! 👊😄
 
 > Caso queira tirar uma dúvida específica, entre em contato com o Chapter no nosso [discord](https://discord.gg/DryuHVnz).
 
