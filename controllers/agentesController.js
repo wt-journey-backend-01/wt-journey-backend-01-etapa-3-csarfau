@@ -41,25 +41,9 @@ const searchQuerySchema = z.object({
  */
 async function index(req, res, next) {
   try {
-    const { cargo, sort } = searchQuerySchema.parse(req.query);
+    const filtros = searchQuerySchema.parse(req.query);
 
-    let agentes = await agentesRepository.findAll();
-
-    if (cargo) {
-      agentes = agentes.filter((a) => a.cargo.toLowerCase() === cargo.toLowerCase());
-    }
-
-    if (sort) {
-      agentes = agentes.sort((a, b) => {
-        const dataA = new Date(a.dataDeIncorporacao).getTime();
-        const dataB = new Date(b.dataDeIncorporacao).getTime();
-        return sort === 'dataDeIncorporacao' ? dataA - dataB : dataB - dataA;
-      });
-    }
-
-    if ((cargo || sort) && agentes.length < 1) {
-      return next(createError(404, { query: 'Não foram encontrados agentes com os parâmetros informados.' }));
-    }
+    let agentes = await agentesRepository.findAll(filtros);
 
     if (agentes.length < 1) {
       return next(createError(404, { agentes: 'Nenhum agente encontrado.' }));
@@ -85,7 +69,7 @@ async function show(req, res, next) {
   try {
     const { id: agenteId } = z
       .object({
-        id: z.coerce.number("O parâmetro 'id' deve ser um número."),
+        id: z.coerce.number("O parâmetro 'id' deve ser um número.").int().positive(),
       })
       .parse(req.params);
 
@@ -141,7 +125,7 @@ async function update(req, res, next) {
   try {
     const { id: agenteId } = z
       .object({
-        id: z.coerce.number("O campo 'id' deve ser um número."),
+        id: z.coerce.number("O campo 'id' deve ser um número.").int().positive(),
       })
       .parse(req.params);
 
@@ -187,7 +171,7 @@ async function patch(req, res, next) {
   try {
     const { id: agenteId } = z
       .object({
-        id: z.coerce.number("O campo 'id' deve ser um número."),
+        id: z.coerce.number("O campo 'id' deve ser um número.").int().positive(),
       })
       .parse(req.params);
 
@@ -226,7 +210,7 @@ async function remove(req, res, next) {
   try {
     const { id: agenteId } = z
       .object({
-        id: z.coerce.number("O campo 'id' deve ser um número."),
+        id: z.coerce.number("O campo 'id' deve ser um número.").int().positive(),
       })
       .parse(req.params);
 

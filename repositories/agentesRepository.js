@@ -1,7 +1,22 @@
 import { db } from '../db/db.js';
 
-async function findAll() {
-  return await db('agentes');
+async function findAll({ cargo, sort } = {}) {
+  const query = db('agentes');
+
+  if (cargo) {
+    query.where('cargo', 'ilike', cargo);
+  }
+
+  if (sort) {
+    const column = 'dataDeIncorporacao';
+    if (sort === 'dataDeIncorporacao') {
+      query.orderBy(column, 'asc');
+    } else if (sort === '-dataDeIncorporacao') {
+      query.orderBy(column, 'desc');
+    }
+  }
+
+  return await query;
 }
 
 /** Encontra um agente através do ID informado.
@@ -30,7 +45,8 @@ async function create(newAgenteData) {
  * @returns { Promise }
  */
 async function update(agenteDataToUpdate, agenteId) {
-  const [agente] = await db('agentes').where({ id: agenteId }).update(agenteDataToUpdate, '*');
+  await db('agentes').where({ id: agenteId }).update(agenteDataToUpdate);
+  const agente = await db('agentes').where({ id: agenteId }).first();
   return agente;
 }
 

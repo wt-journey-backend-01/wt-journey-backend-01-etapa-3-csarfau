@@ -50,7 +50,8 @@ async function create(newCaso) {
  * @returns { Promise }
  */
 async function update(casoDataToUpdate, casoId) {
-  const [caso] = await db('casos').where({ id: casoId }).update(casoDataToUpdate, '*');
+  await db('casos').where({ id: casoId }).update(casoDataToUpdate);
+  const caso = await db('casos').where({ id: casoId }).first();
   return caso;
 }
 

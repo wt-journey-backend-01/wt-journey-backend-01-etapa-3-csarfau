@@ -8,11 +8,11 @@ const newCasoSchema = z.object({
   titulo: z.string("O campo 'titulo' deve ser uma string.").min(1, "O campo 'titulo' é obrigatório."),
   descricao: z.string("O campo 'descricao' deve ser uma string.").min(1, "O campo 'descricao' é obrigatório."),
   status: z.enum(['aberto', 'solucionado'], "O campo 'status' deve ser somente 'aberto' ou 'solucionado'."),
-  agente_id: z.coerce.number("O campo 'agente_id' deve ser um número."),
+  agente_id: z.coerce.number("O campo 'agente_id' deve ser um número.").int().positive(),
 });
 
 const indexQuerySchema = z.object({
-  agente_id: z.coerce.number("O campo 'agente_id' deve ser um número.").optional(),
+  agente_id: z.coerce.number("O campo 'agente_id' deve ser um número.").int().positive().optional(),
   status: z
     .enum(['aberto', 'solucionado'], "O parâmetro 'status' deve ser somente 'aberto' ou 'solucionado'.")
     .optional(),
@@ -85,7 +85,7 @@ async function show(req, res, next) {
   try {
     const { id: casoId } = z
       .object({
-        id: z.coerce.number("O campo 'id' deve ser um número."),
+        id: z.coerce.number("O campo 'id' deve ser um número.").int().positive(),
       })
       .parse(req.params);
 
@@ -147,7 +147,7 @@ async function update(req, res, next) {
   try {
     const { id: casoId } = z
       .object({
-        id: z.coerce.number("O campo 'id' deve ser um número."),
+        id: z.coerce.number("O campo 'id' deve ser um número.").int().positive(),
       })
       .parse(req.params);
 
@@ -173,7 +173,7 @@ async function update(req, res, next) {
     return res.status(200).json(updatedCaso);
   } catch (err) {
     if (err.name === 'ZodError') {
-      const isInvalidId = err.issues.length === 1 && err.issues[0].path[0] === ('id' || 'agente_id');
+      const isInvalidId = err.issues.length === 1 && ['id', 'agente_id'].includes(err.issues[0].path[0]);
       const statusCode = isInvalidId ? 404 : 400;
       return next(createError(statusCode, formatZodErrors(err)));
     }
@@ -196,7 +196,7 @@ async function patch(req, res, next) {
   try {
     const { id: casoId } = z
       .object({
-        id: z.coerce.number("O campo 'id' deve ser um número."),
+        id: z.coerce.number("O campo 'id' deve ser um número.").int().positive(),
       })
       .parse(req.params);
 
@@ -224,7 +224,7 @@ async function patch(req, res, next) {
     return res.status(200).json(updatedCaso);
   } catch (err) {
     if (err.name === 'ZodError') {
-      const isInvalidId = err.issues.length === 1 && err.issues[0].path[0] === ('id' || 'agente_id');
+      const isInvalidId = err.issues.length === 1 && ['id', 'agente_id'].includes(err.issues[0].path[0]);
       const statusCode = isInvalidId ? 404 : 400;
       return next(createError(statusCode, formatZodErrors(err)));
     }
@@ -243,7 +243,7 @@ async function remove(req, res, next) {
   try {
     const { id: casoId } = z
       .object({
-        id: z.coerce.number("O campo 'id' deve ser um número."),
+        id: z.coerce.number("O campo 'id' deve ser um número.").int().positive(),
       })
       .parse(req.params);
 
@@ -277,7 +277,7 @@ async function showResponsibleAgente(req, res, next) {
   try {
     const { id: casoId } = z
       .object({
-        id: z.coerce.number("O campo 'id' deve ser um numero."),
+        id: z.coerce.number("O campo 'id' deve ser um numero.").int().positive(),
       })
       .parse(req.params);
 
