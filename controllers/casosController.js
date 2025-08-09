@@ -102,7 +102,7 @@ async function show(req, res, next) {
       const statusCode = isInvalidId ? 404 : 400;
       return next(createError(statusCode, formatZodErrors(err)));
     }
-    next(err);
+    return next(err);
   }
 }
 
@@ -132,7 +132,7 @@ async function create(req, res, next) {
       const statusCode = isInvalidId ? 404 : 400;
       return next(createError(statusCode, formatZodErrors(err)));
     }
-    next(err);
+    return next(err);
   }
 }
 
