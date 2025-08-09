@@ -3,6 +3,7 @@
  * @returns { Promise<void> }
  */
 export async function seed(knex) {
+  await knex('casos').del();
   await knex('agentes').del();
   await knex('agentes').insert([
     { nome: 'Cesar', dataDeIncorporacao: '2018-02-01', cargo: 'Coronel' },
