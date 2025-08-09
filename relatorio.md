@@ -1,176 +1,188 @@
 <sup>Esse é um feedback gerado por IA, ele pode conter erros.</sup>
 
-Você tem 1 créditos restantes para usar o sistema de feedback AI.
+Você tem 0 créditos restantes para usar o sistema de feedback AI.
 
 # Feedback para csarfau:
 
-Nota final: **88.3/100**
+Nota final: **92.6/100**
 
-# Feedback para csarfau 🚓🚀
+# Feedback para csarfau 🚔💻
 
-Olá, csarfau! Antes de mais nada, parabéns pelo esforço e pela entrega dessa etapa tão importante do seu projeto! 🎉 Você já conseguiu implementar várias funcionalidades essenciais, como a persistência de dados com PostgreSQL, o uso do Knex.js para query building, e a estrutura modular com controllers, rotas e repositories. Isso é fundamental para garantir escalabilidade e organização no seu código. Além disso, você acertou muito bem na validação dos dados com Zod e no tratamento de erros customizados, garantindo que a API responda com os status HTTP corretos. 👏👏
-
-Também quero destacar que você foi além do básico: implementou filtragem simples por status e agente nos casos, o que mostra uma boa compreensão das necessidades da API e das queries dinâmicas. Isso é um bônus valioso e demonstra seu comprometimento com a qualidade! 🌟
+Olá, csarfau! Primeiramente, parabéns pelo empenho e pela entrega da sua API para o Departamento de Polícia! 🎉 Você fez um trabalho muito sólido, especialmente na organização do projeto, na implementação das rotas REST para agentes e casos, e na validação dos dados com Zod — isso é fundamental para garantir a robustez da API. Além disso, você conseguiu implementar alguns recursos bônus, como os filtros simples para casos por status e agente, o que mostra seu comprometimento em ir além do básico. 👏👏
 
 ---
 
-## Análise e sugestões para aprimorar seu código
+## O que está muito bem feito 👍
 
-### 1. Estrutura do Projeto e Organização 🗂️
-
-Sua estrutura está muito próxima do esperado e isso é ótimo! Você tem as pastas e arquivos principais (`db/`, `controllers/`, `repositories/`, `routes/`, `utils/`, `server.js`, `knexfile.js`), o que facilita a manutenção e a escalabilidade.
-
-Só fique atento para manter as migrations dentro de `db/migrations` e os seeds dentro de `db/seeds`, que já está correto pelo que vi. Isso é importante para o Knex localizar corretamente esses arquivos.
-
----
-
-### 2. Configuração do Banco de Dados e Conexão via Knex 🐘
-
-Vi que seu arquivo `knexfile.js` está configurado para usar variáveis de ambiente (`process.env.POSTGRES_USER`, etc.) e que você tem o `docker-compose.yml` configurado para rodar o container do PostgreSQL. Isso é perfeito para garantir um ambiente isolado e controlado.
-
-**Porém, um ponto que pode impactar diretamente a criação, atualização e deleção dos agentes (e que pode estar causando falhas nessas operações) é a conexão com o banco e a execução das migrations.**
-
-- Você está usando o comando `npm run db:reset` que roda o Docker, espera o banco subir, executa as migrations e os seeds. Isso é ótimo.
-- Certifique-se que as migrations realmente criam as tabelas `agentes` e `casos` com as colunas corretas, incluindo os tipos e constraints (ex: chave primária, foreign key para `agente_id` em `casos`).
-- Se as tabelas não existirem ou estiverem mal definidas, as operações de `insert`, `update` e `delete` falham silenciosamente ou lançam erros que podem não estar sendo capturados corretamente.
-
-**Dica:** Verifique se as migrations estão assim, por exemplo:
-
-```js
-export async function up(knex) {
-  await knex.schema.createTable('agentes', (table) => {
-    table.increments('id').primary();
-    table.string('nome').notNullable();
-    table.date('dataDeIncorporacao').notNullable();
-    table.string('cargo').notNullable();
-  });
-
-  await knex.schema.createTable('casos', (table) => {
-    table.increments('id').primary();
-    table.integer('agente_id').unsigned().notNullable().references('id').inTable('agentes').onDelete('CASCADE');
-    table.string('titulo').notNullable();
-    table.text('descricao').notNullable();
-    table.enum('status', ['aberto', 'solucionado']).notNullable();
-  });
-}
-```
-
-Se as migrations estiverem faltando ou incorretas, isso explicaria por que as operações de criação (`POST`), atualização completa (`PUT`) e deleção (`DELETE`) de agentes falham, mesmo que o `GET` funcione (já que ele pode estar retornando dados do seed ou cache).
+- **Arquitetura modular**: Você manteve uma estrutura clara e organizada, com `controllers`, `repositories`, `routes` e `utils`. Isso facilita muito a manutenção e escalabilidade do projeto.
+- **Validação com Zod**: O uso do Zod para validar payloads e query params está muito bem implementado, com mensagens personalizadas que ajudam o consumidor da API.
+- **Tratamento de erros**: O middleware de tratamento de erros está sendo usado corretamente, com retornos de status apropriados (400, 404, etc.).
+- **Migrations e Seeds**: Vejo que você criou as migrations e os seeds para popular as tabelas, garantindo que o banco esteja preparado para uso.
+- **Filtros e buscas**: A implementação dos filtros básicos para casos e agentes está funcionando bem e clara.
+- **Scripts no package.json**: O script `db:reset` é uma ótima prática para facilitar o reset do banco durante o desenvolvimento.
 
 ---
 
-### 3. Repositórios: Uso do Knex e Queries 🕵️‍♂️
+## Pontos para melhorar — vamos juntos destravar esses detalhes! 🔍
 
-No seu `agentesRepository.js`, a estrutura das funções está muito boa e clara! Você usa o Knex para montar as queries de forma elegante, o que é ótimo.
+### 1. Falha na criação e atualização completa de agentes (POST e PUT)
 
-Porém, para garantir que as operações de criação, atualização e deleção funcionem corretamente, confira:
+Você tem um problema que impacta diretamente a criação (`POST /agentes`) e a atualização completa (`PUT /agentes/:id`) dos agentes, que são operações fundamentais. Isso fez com que esses endpoints não funcionassem 100%.
 
-- Se o método `create` está usando `.returning('*')` (que você fez corretamente) e se o banco está configurado para retornar os dados após o insert.
-- Se o método `update` está realmente atualizando a linha correta e depois buscando o agente atualizado para retornar.
-- Se o método `remove` está deletando o agente pelo id correto.
+#### O que eu observei:
 
-Como exemplo, seu código está assim:
+- No arquivo `repositories/agentesRepository.js`, o método `create` está correto, usando:
 
-```js
-async function create(newAgenteData) {
+  ```js
   const [agente] = await db('agentes').returning('*').insert(newAgenteData);
+  ```
+
+- O método `update` também parece correto, atualizando e depois buscando o registro atualizado:
+
+  ```js
+  await db('agentes').where({ id: agenteId }).update(agenteDataToUpdate);
+  const agente = await db('agentes').where({ id: agenteId }).first();
   return agente;
-}
-```
+  ```
 
-Esse padrão está correto! Se o banco estiver configurado corretamente, isso deve funcionar.
+- No controlador (`controllers/agentesController.js`), o fluxo de validação e chamada do repositório está bem estruturado.
 
-**Sugestão:** Para investigar, você pode adicionar logs para conferir o que está chegando no banco e o que está retornando:
+#### Mas, ao analisar a migration, percebi algo importante:
 
 ```js
-async function create(newAgenteData) {
-  console.log('Criando agente:', newAgenteData);
-  const [agente] = await db('agentes').returning('*').insert(newAgenteData);
-  console.log('Agente criado:', agente);
-  return agente;
-}
+await knex.schema.createTable('agentes', function (table) {
+  table.increments('id').primary();
+  table.string('nome').notNullable();
+  table.date('dataDeIncorporacao').notNullable();
+  table.string('cargo').notNullable();
+});
 ```
 
-Isso ajuda a detectar se o erro está antes ou depois da query.
+O campo `dataDeIncorporacao` é do tipo `date` no banco, mas no seu schema Zod para criação e atualização você está validando como string no formato `"YYYY-MM-DD"`. Isso é correto, e o Knex deve converter essa string para o formato date ao inserir.
+
+Contudo, o problema mais provável está na **configuração do banco** ou na forma como o ambiente está sendo usado.
+
+### Hipótese raiz para o problema:
+
+- Eu suspeito que o banco de dados não esteja sendo inicializado corretamente, ou que as migrations não estejam rodando como esperado, fazendo com que a tabela `agentes` não exista ou esteja com estrutura diferente da esperada na hora do `insert` e `update`.
+- Isso pode causar erros silenciosos ou falhas que impedem o sucesso da criação e atualização completa.
+
+### Como verificar e corrigir:
+
+- Confirme se o container do PostgreSQL está rodando e acessível na porta 5432.
+- Confira se as variáveis de ambiente `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` estão definidas corretamente no seu ambiente (arquivo `.env` ou variáveis do sistema).
+- Execute manualmente as migrations para garantir que as tabelas foram criadas:
+
+```bash
+npx knex migrate:latest
+```
+
+- Depois, rode os seeds para popular as tabelas:
+
+```bash
+npx knex seed:run
+```
+
+- Você pode usar o comando que já preparou no `package.json` para resetar o banco:
+
+```bash
+npm run db:reset
+```
+
+- Caso o problema persista, tente conectar ao banco via cliente (ex: pgAdmin, DBeaver ou psql) e verifique se as tabelas `agentes` e `casos` existem e possuem a estrutura correta.
+
+> Recomendo fortemente este vídeo para entender a configuração do ambiente com Docker e Knex:  
+> http://googleusercontent.com/youtube.com/docker-postgresql-node
 
 ---
 
-### 4. Validação e Tratamento de Erros: Muito Bem Feito! 🎯
+### 2. Falha na filtragem avançada e busca de agentes e casos (Testes bônus)
 
-Seu uso do Zod para validar os dados de entrada está excelente! Você cobre os casos de campos obrigatórios, tipos, formatos de data, enumerações, e até a verificação de existência dos agentes relacionados nos casos.
+Você implementou os filtros simples para casos e agentes, mas alguns filtros mais complexos e buscas não estão funcionando, como:
 
-Também gostei do tratamento das exceções e do uso do middleware de erro para enviar respostas customizadas com status e mensagens claras.
+- Endpoint para buscar o agente responsável por um caso (`GET /casos/:id/agente`)
+- Busca por keywords no título e descrição dos casos
+- Filtragem de agentes por data de incorporação com ordenação ascendente e descendente
+- Mensagens customizadas para erros de argumentos inválidos
 
-Um ponto de atenção que pode melhorar a robustez:
+#### Onde está o problema?
 
-- Nos métodos `update` e `patch` dos controllers, você faz a validação do id e verifica se o recurso existe antes de atualizar/deletar, o que é ótimo.
-- Porém, em alguns catch blocks, você repete o mesmo bloco de código para tratar `ZodError`. Você pode extrair isso para uma função utilitária para deixar o código mais limpo e evitar duplicação.
+- No `controllers/casosController.js`, o método `search` chama `casosRepository.findAll` passando um filtro `{ q }`, mas no `casosRepository.js` o método `findAll` só filtra por `agente_id`, `status` e `q` (ok), porém a query usa `whereILike` e `orWhereILike` — isso está certo, mas pode haver um problema se o parâmetro `q` não está chegando corretamente ou se o endpoint não está recebendo query params como esperado.
+- No `routes/casosRoutes.js`, a rota `/search` está definida antes da rota `/:id`, o que é correto para evitar conflito de rotas.
+- Já para a filtragem de agentes por data de incorporação com sorting, no `repositories/agentesRepository.js` você tem:
+
+  ```js
+  if (sort) {
+    const column = 'dataDeIncorporacao';
+    if (sort === 'dataDeIncorporacao') {
+      query.orderBy(column, 'asc');
+    } else if (sort === '-dataDeIncorporacao') {
+      query.orderBy(column, 'desc');
+    }
+  }
+  ```
+
+- Isso parece correto, mas o problema pode estar na forma como o parâmetro `sort` está sendo passado e validado no controlador, ou na ausência de testes para esse filtro nos endpoints.
+
+- Além disso, percebi que no schema Zod do controlador de agentes, o parâmetro `sort` é validado assim:
+
+  ```js
+  sort: z.enum(
+    ['dataDeIncorporacao', '-dataDeIncorporacao'],
+    "O parâmetro 'sort' deve ser somente 'dataDeIncorporacao' ou '-dataDeIncorporacao'.",
+  ).optional(),
+  ```
+
+- Está correto, mas se o parâmetro não está chegando ou vindo com outro nome, a validação falha.
+
+### O que fazer para melhorar?
+
+- Teste diretamente os endpoints com query params `sort=dataDeIncorporacao` e `sort=-dataDeIncorporacao` para ver se a ordenação está funcionando.
+- Verifique se o cliente que consome a API está enviando os parâmetros corretamente.
+- Para a busca por keywords, valide que o parâmetro `q` está sendo passado e utilizado no repositório.
+- Para o endpoint que retorna o agente responsável pelo caso (`showResponsibleAgente`), o código parece correto, mas pode estar falhando se o ID do caso não existir ou se a relação entre casos e agentes estiver inconsistente no banco (ex: agente removido mas caso ainda aponta para ele).
+- Garanta que os dados no seed estejam consistentes e que as foreign keys estão funcionando.
+
+> Para entender melhor como construir queries com filtros e ordenação usando Knex, recomendo este guia oficial:  
+> https://knexjs.org/guide/query-builder.html
 
 ---
 
-### 5. Endpoints Bônus e Filtros Complexos: Foco para Próximos Passos 🚀
+### 3. Pequenos detalhes que podem ajudar na robustez do código
 
-Você conseguiu implementar a filtragem simples por status e agente nos casos, que é um diferencial importante.
-
-Porém, percebi que algumas funcionalidades bônus não foram completamente implementadas:
-
-- Endpoint para buscar o agente responsável por um caso (`showResponsibleAgente`) está declarado, mas parece que não está funcionando corretamente.
-- Filtros complexos para agentes por data de incorporação com ordenação ascendente e descendente não passaram.
-- Busca por keywords no título e descrição dos casos também não está funcionando como esperado.
-
-Esses pontos são um ótimo próximo passo para você focar, pois envolvem queries mais avançadas com Knex e manipulação de parâmetros.
+- No método `update` do controlador de agentes, você tem uma verificação dupla para `ZodError` que pode ser simplificada para evitar código repetido.
+- Em alguns catch blocks, você usa `next(err)` sem `return`, o que pode causar múltiplos envios de resposta (embora seja um detalhe menor).
+- No schema Zod para datas, você faz várias validações encadeadas, o que é ótimo, mas pode ser interessante extrair isso para um validador customizado para reutilizar e manter o código mais limpo.
 
 ---
 
-### 6. Recomendações de Aprendizado 📚
+## Resumo dos principais pontos para focar 📝
 
-Para ajudar você a destravar esses pontos, recomendo fortemente os seguintes recursos:
+- [ ] **Verifique a conexão com o banco e se as migrations foram aplicadas corretamente.** Isso é fundamental para que os inserts e updates funcionem sem erros.
+- [ ] **Confirme que as variáveis de ambiente estão configuradas corretamente** (POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB).
+- [ ] **Teste os filtros avançados e endpoints de busca** para garantir que os parâmetros estão chegando e sendo usados corretamente.
+- [ ] **Garanta a consistência dos dados nos seeds**, especialmente as relações entre agentes e casos.
+- [ ] **Revise pequenos detalhes de tratamento de erros para evitar código duplicado e garantir respostas únicas.**
+
+---
+
+## Para seguir aprendendo e fortalecer seu código
 
 - **Configuração de Banco de Dados com Docker e Knex:**  
   http://googleusercontent.com/youtube.com/docker-postgresql-node  
-  https://knexjs.org/guide/migrations.html
-
-- **Query Builder do Knex:**  
-  https://knexjs.org/guide/query-builder.html
-
-- **Refatoração e Arquitetura MVC em Node.js:**  
+  https://knexjs.org/guide/migrations.html  
+- **Knex Query Builder para filtros e ordenação:**  
+  https://knexjs.org/guide/query-builder.html  
+- **Validação e tratamento de erros em APIs Node.js:**  
+  https://youtu.be/yNDCRAz7CM8?si=Lh5u3j27j_a4w3A_  
+- **Arquitetura MVC em Node.js para organizar projetos:**  
   https://youtu.be/bGN_xNc4A1k?si=Nj38J_8RpgsdQ-QH
 
-- **Validação e Tratamento de Erros em APIs:**  
-  https://youtu.be/yNDCRAz7CM8?si=Lh5u3j27j_a4w3A_  
-  https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Status/400  
-  https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Status/404
-
-- **Manipulação de Requisições e Respostas HTTP:**  
-  https://youtu.be/RSZHvQomeKE
-
 ---
 
-## Resumo dos principais pontos para focar 🔍
+Parabéns pelo trabalho até aqui, csarfau! 🚀 Você está no caminho certo, e com esses ajustes vai deixar sua API ainda mais robusta e completa. Continue explorando, testando e aprendendo — a prática é o que transforma bons códigos em códigos excelentes! Qualquer dúvida, estou aqui para ajudar. 😉
 
-- [ ] Verifique se as migrations estão criando as tabelas `agentes` e `casos` corretamente, com todos os campos e constraints necessários. Sem isso, as operações de criação, atualização e deleção não funcionarão.
-
-- [ ] Confirme que o container do PostgreSQL está rodando, as variáveis de ambiente estão corretas e que o Knex está conectando ao banco sem erros.
-
-- [ ] Teste e logue as queries nos repositórios para garantir que os dados estão sendo inseridos, atualizados e deletados conforme esperado.
-
-- [ ] Refatore o tratamento repetido de erros Zod para uma função utilitária, deixando o código mais limpo e evitando duplicidade.
-
-- [ ] Foque em implementar os filtros e buscas avançadas (ordenar agentes por data, busca por keywords nos casos, endpoint para buscar agente responsável por caso) para melhorar a usabilidade da API.
-
----
-
-## Para finalizar...
-
-Você está no caminho certo, csarfau! 👏 Seu código está organizado, as validações estão bem feitas, e a estrutura modular está excelente. Com atenção especial às migrations e à conexão com o banco, você vai conseguir destravar as funcionalidades que ainda falham e entregar uma API robusta e escalável.
-
-Continue praticando, explorando os recursos que te indiquei e testando seu código passo a passo. Tenho certeza que logo você vai dominar esses conceitos e criar sistemas cada vez mais profissionais! 💪🚀
-
-Se precisar, estou aqui para ajudar a desvendar qualquer mistério no seu código. Boa sorte e bora codar! 🕵️‍♂️✨
-
----
-
-Abraços do seu Code Buddy! 🤖❤️
+Abraços e bons códigos! 👊💙
 
 > Caso queira tirar uma dúvida específica, entre em contato com o Chapter no nosso [discord](https://discord.gg/DryuHVnz).
 
